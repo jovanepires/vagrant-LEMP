@@ -1,24 +1,63 @@
 server {
-    listen 4000;
-    server_name localhost;
+    listen 80 default_server;
+    listen [::]:80 default_server ipv6only=on;
 
-    root /var/www/src/;
-    index index.php index.html;
+    root /var/www;
+    index index.php index.html index.htm;
 
-    # Important for VirtualBox
-    sendfile off;
+    # Make site accessible from http://localhost/
+    # server_name yourdomain.com;
 
+    location = /js/index.php/x.js {
+        rewrite ^(.*\.php)/ $1 last;
+    }
+
+    ## Main Magento @location
     location / {
-        try_files $uri $uri/ =404;
+       try_files $uri $uri/ /index.php?$args;
     }
 
-    location ~* \.php {
-        include fastcgi_params;
 
-        fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;
-
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        fastcgi_cache off;
-        fastcgi_index index.php;
+    ## These locations are protected
+    location ~ /(app|var|downloader|includes|pkginfo)/ {
+        deny all;
     }
+
+    ## Images
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+        expires max;
+        log_not_found off;
+        access_log off;
+        add_header ETag "";
+    }
+
+    ## Fonts
+    location ~* \.(swf|eot|ttf|otf|woff|woff2)$ {
+        expires max;
+        log_not_found off;
+        access_log off;
+        add_header ETag "";
+        add_header Access-Control-Allow-Origin "*";
+        add_header Cache-Control "public";
+    }
+    
+    ## Execute PHP scripts
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_pass    unix:/var/run/php/php-fpm.sock;
+        fastcgi_buffers 1024 4k;
+
+        #fastcgi_param  PHP_FLAG  "session.auto_start=on \n suhosin.session.cryptua=off";
+        fastcgi_param  PHP_VALUE "memory_limit=768M \n max_execution_time=600 \n session.auto_start=0";
+        fastcgi_read_timeout 600s;
+        fastcgi_connect_timeout 600s;
+        fastcgi_keep_conn on;
+
+        fastcgi_index  index.php;
+        fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+        include        fastcgi_params;
+
+    }
+
 }
+                                                                                                                                                                   63,1          Bot
